@@ -1,0 +1,6 @@
+{
+  "name": "Smart Internship Deadline Tracker",
+  "description": "Smart Internship Deadline Tracker Phase 1 - Authentication, Modular Student Auth & Session Management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
