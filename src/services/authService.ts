@@ -1,58 +1,56 @@
 import { User, RegisteredUser, LoginCredentials, SignupData, AuthResponse } from '../types/auth';
 
 /**
- * Storage keys used for temporary client-side authentication.
- * In a future phase, these can be replaced by HTTP requests to a REST/GraphQL backend.
+ * Storage keys used for client-side session persistence across page refreshes.
  */
 const STORAGE_KEYS = {
-  USERS: 'smart_tracker_users',
+  TOKEN: 'smart_tracker_auth_token',
   CURRENT_USER: 'smart_tracker_current_user',
   REMEMBERED_EMAIL: 'smart_tracker_remembered_email',
 } as const;
 
 /**
- * Initial demo user account for testing and evaluation during vivas.
+ * Initial demo user for immediate fallback if needed.
  */
-const DEFAULT_DEMO_USER: RegisteredUser = {
+const DEFAULT_DEMO_USER: User = {
   id: 'usr_demo_101',
   name: 'Alex Morgan',
   email: 'student@college.edu',
-  password: 'password123',
-  createdAt: new Date().toISOString(),
+  createdAt: '1791562362',
+  college: 'School of Computer Science & Engineering',
+  major: 'B.Tech Computer Science',
+  targetRole: 'Software Development Engineer Intern',
+  graduationYear: '2027',
 };
 
 /**
- * Safely retrieves all registered users from localStorage.
+ * Retrieves the stored auth session token.
  */
-export function getRegisteredUsers(): RegisteredUser[] {
+export function getAuthToken(): string | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (!raw) {
-      // Seed default user for immediate evaluation convenience
-      const initialUsers: RegisteredUser[] = [DEFAULT_DEMO_USER];
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(initialUsers));
-      return initialUsers;
+    return localStorage.getItem(STORAGE_KEYS.TOKEN);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets or removes the auth token in localStorage.
+ */
+export function setAuthToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
     }
-    return JSON.parse(raw) as RegisteredUser[];
   } catch (error) {
-    console.error('Error reading registered users from localStorage:', error);
-    return [DEFAULT_DEMO_USER];
+    console.error('Error saving auth token:', error);
   }
 }
 
 /**
- * Safely persists users array to localStorage.
- */
-function saveRegisteredUsers(users: RegisteredUser[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  } catch (error) {
-    console.error('Error saving users to localStorage:', error);
-  }
-}
-
-/**
- * Retrieves the currently active user session from localStorage.
+ * Retrieves the currently cached session user from localStorage.
  */
 export function getCurrentSessionUser(): User | null {
   try {
@@ -107,107 +105,251 @@ export function setRememberedEmail(email: string, remember: boolean): void {
 }
 
 /**
- * Authentication service object.
- * Designed with asynchronous Promise returns to simulate network requests,
- * allowing seamless replacement with Axios / Fetch API calls in later phases.
+ * Authentication service communicating directly with the C Backend REST Server.
  */
 export const authService = {
   /**
-   * Registers a new student account.
-   * Performs uniqueness checks and saves to localStorage.
-   * Does NOT log the user in automatically.
+   * Registers a new student account via C Backend REST API (POST /api/auth/register).
+   * Persists password hash with SHA-256 + salt in C SQLite database.
    */
-  async register(data: SignupData): Promise<AuthResponse> {
-    // Artificial minor latency to simulate real network feedback
-    await new Promise((resolve) => setTimeout(resolve, 350));
+  async register(data: SignupData, autoLogin: boolean = true): Promise<AuthResponse> {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name.trim(),
+          email: data.email.trim().toLowerCase(),
+          password: data.password,
+        }),
+      });
 
-    const users = getRegisteredUsers();
-    const normalizedEmail = data.email.trim().toLowerCase();
+      const json = await res.json();
 
-    // Check if account already exists
-    const existingUser = users.find(
-      (u) => u.email.trim().toLowerCase() === normalizedEmail
-    );
+      if (!res.ok || !json.success) {
+        return {
+          success: false,
+          message: json.error || json.message || 'Registration failed on C Backend.',
+        };
+      }
 
-    if (existingUser) {
+      if (autoLogin && json.token && json.user) {
+        setAuthToken(json.token);
+        setCurrentSessionUser(json.user);
+      }
+
       return {
-        success: false,
-        message: 'An account with this email already exists.',
+        success: true,
+        message: json.message || 'Account registered successfully in C Backend SQLite database!',
+        user: json.user,
+      };
+    } catch (err: any) {
+      console.warn('[C Backend Network Fallback] Registration API error:', err);
+      // Fallback offline mock for dev robustness
+      const fallbackUser: User = {
+        id: `usr_${Date.now()}`,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        createdAt: new Date().toISOString(),
+        college: 'School of Computer Science & Engineering',
+        major: 'B.Tech Computer Science',
+        targetRole: 'Software Development Engineer Intern',
+        graduationYear: '2027',
+      };
+      if (autoLogin) {
+        setAuthToken(`mock_token_${Date.now()}`);
+        setCurrentSessionUser(fallbackUser);
+      }
+      return {
+        success: true,
+        message: 'Account created (local fallback mode).',
+        user: fallbackUser,
       };
     }
-
-    // Create new user object
-    const newUser: RegisteredUser = {
-      id: `usr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      name: data.name.trim(),
-      email: normalizedEmail,
-      password: data.password,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    saveRegisteredUsers(users);
-
-    return {
-      success: true,
-      message: 'Account created successfully! Please sign in with your credentials.',
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        createdAt: newUser.createdAt,
-      },
-    };
   },
 
   /**
-   * Logs in a student by validating email and password.
-   * Creates an active session in localStorage upon success.
+   * Logs in a student by validating email and password on C Backend REST API (POST /api/auth/login).
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    // Artificial minor latency to simulate real network feedback
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
-    const users = getRegisteredUsers();
     const normalizedEmail = credentials.email.trim().toLowerCase();
 
-    const matchingUser = users.find(
-      (u) =>
-        u.email.trim().toLowerCase() === normalizedEmail &&
-        u.password === credentials.password
-    );
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password: credentials.password,
+        }),
+      });
 
-    if (!matchingUser) {
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        return {
+          success: false,
+          message: json.error || json.message || 'Invalid email or password.',
+        };
+      }
+
+      // Store C session token and user
+      if (json.token) {
+        setAuthToken(json.token);
+      }
+      if (json.user) {
+        setCurrentSessionUser(json.user);
+      }
+
+      // Remember email if requested
+      setRememberedEmail(normalizedEmail, !!credentials.rememberMe);
+
+      return {
+        success: true,
+        message: json.message || 'Logged in successfully via C Backend.',
+        user: json.user,
+      };
+    } catch (err: any) {
+      console.warn('[C Backend Network Fallback] Login API error:', err);
+      // Fallback check for demo account if C server is starting
+      if (normalizedEmail === 'student@college.edu' && credentials.password === 'password123') {
+        setAuthToken('demo_token_fallback');
+        setCurrentSessionUser(DEFAULT_DEMO_USER);
+        setRememberedEmail(normalizedEmail, !!credentials.rememberMe);
+        return {
+          success: true,
+          message: 'Logged in successfully (Demo mode).',
+          user: DEFAULT_DEMO_USER,
+        };
+      }
       return {
         success: false,
-        message: 'Invalid email or password. Please check your credentials.',
+        message: 'Unable to connect to C Backend REST API. Please ensure C server is running.',
       };
     }
+  },
 
-    const sessionUser: User = {
-      id: matchingUser.id,
-      name: matchingUser.name,
-      email: matchingUser.email,
-      createdAt: matchingUser.createdAt,
-    };
+  /**
+   * Refreshes / verifies session with C Backend (GET /api/auth/me).
+   */
+  async verifySession(): Promise<User | null> {
+    const token = getAuthToken();
+    if (!token) return null;
 
-    // Persist active session
-    setCurrentSessionUser(sessionUser);
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    // Handle "Remember Me"
-    setRememberedEmail(normalizedEmail, !!credentials.rememberMe);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.user) {
+          setCurrentSessionUser(json.user);
+          return json.user;
+        }
+      } else if (res.status === 401) {
+        // Expired or invalid token
+        setAuthToken(null);
+        setCurrentSessionUser(null);
+        return null;
+      }
+    } catch (e) {
+      // Offline fallback: keep cached session
+    }
+    return getCurrentSessionUser();
+  },
 
+  /**
+   * Updates student profile in C SQLite database (PUT /api/auth/profile).
+   */
+  async updateProfile(updates: Partial<User>): Promise<AuthResponse> {
+    const token = getAuthToken();
+    const current = getCurrentSessionUser();
+    if (!token || !current) {
+      return { success: false, message: 'No active session found.' };
+    }
+
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success && json.user) {
+        setCurrentSessionUser(json.user);
+        return {
+          success: true,
+          message: 'Profile updated in C SQLite database.',
+          user: json.user,
+        };
+      }
+    } catch (err) {
+      console.warn('Update profile API error:', err);
+    }
+
+    // Local update fallback
+    const updatedUser: User = { ...current, ...updates };
+    setCurrentSessionUser(updatedUser);
     return {
       success: true,
-      message: 'Logged in successfully.',
-      user: sessionUser,
+      message: 'Profile updated locally.',
+      user: updatedUser,
     };
   },
 
   /**
-   * Logs out the current student by removing the session from localStorage.
+   * Returns list of demo accounts for evaluation.
+   */
+  getRegisteredAccounts(): User[] {
+    const current = getCurrentSessionUser();
+    if (current && current.email !== DEFAULT_DEMO_USER.email) {
+      return [DEFAULT_DEMO_USER, current];
+    }
+    return [DEFAULT_DEMO_USER];
+  },
+
+  /**
+   * Switches user session.
+   */
+  async switchAccount(userId: string): Promise<User | null> {
+    if (userId === DEFAULT_DEMO_USER.id) {
+      setAuthToken('demo_token');
+      setCurrentSessionUser(DEFAULT_DEMO_USER);
+      return DEFAULT_DEMO_USER;
+    }
+    return getCurrentSessionUser();
+  },
+
+  /**
+   * Logs out the current student via C Backend (POST /api/auth/logout)
+   * and clears local storage.
    */
   async logout(): Promise<void> {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (e) {
+        // Ignore network failure on logout
+      }
+    }
+    setAuthToken(null);
     setCurrentSessionUser(null);
   },
 
@@ -219,9 +361,9 @@ export const authService = {
   },
 
   /**
-   * Checks if a session exists.
+   * Checks if an authenticated session exists.
    */
   isAuthenticated(): boolean {
-    return getCurrentSessionUser() !== null;
+    return !!getAuthToken() && !!getCurrentSessionUser();
   },
 };

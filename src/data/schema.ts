@@ -1,21 +1,24 @@
 import { InternshipRecord } from '../types/internship';
 
 /**
- * Blueprint Seed Data for Future Phase 1 Data Structures Testing.
- * These records represent realistic student internship applications that
- * will populate the custom Linked List, Stack, and Queue structures in Phase 1.
+ * Seed Internship Applications Data Model.
+ * Populates custom C and TypeScript Data Structures & Algorithms across Phases 1 - 4.
  */
 export const SAMPLE_INTERNSHIP_BLUEPRINT: InternshipRecord[] = [
   {
     id: 'INT-101',
     companyName: 'Google',
-    jobRole: 'Software Engineering Intern (Summer 2027)',
+    jobRole: 'Software Engineering Intern',
     location: 'Mountain View, CA (Hybrid)',
     applicationDeadline: '2026-10-15',
     applicationStatus: 'Applied',
     priority: 'High',
     applicationDate: '2026-09-01',
     notes: 'Completed technical coding assessment. Reviewing DSA fundamentals.',
+    stipend: '$9,200/mo',
+    stipendAmount: 9200,
+    interviewRounds: 3,
+    prepHoursRequired: 20,
   },
   {
     id: 'INT-102',
@@ -26,7 +29,11 @@ export const SAMPLE_INTERNSHIP_BLUEPRINT: InternshipRecord[] = [
     applicationStatus: 'Interviewing',
     priority: 'High',
     applicationDate: '2026-08-20',
-    notes: 'Round 1 technical interview scheduled on graph traversal and recursion.',
+    notes: 'Round 1 technical interview scheduled on tree traversals & graphs.',
+    stipend: '$8,500/mo',
+    stipendAmount: 8500,
+    interviewRounds: 4,
+    prepHoursRequired: 16,
   },
   {
     id: 'INT-103',
@@ -38,6 +45,10 @@ export const SAMPLE_INTERNSHIP_BLUEPRINT: InternshipRecord[] = [
     priority: 'Medium',
     applicationDate: '2026-09-04',
     notes: 'Application submitted through campus portal.',
+    stipend: '$8,800/mo',
+    stipendAmount: 8800,
+    interviewRounds: 3,
+    prepHoursRequired: 14,
   },
   {
     id: 'INT-104',
@@ -49,6 +60,10 @@ export const SAMPLE_INTERNSHIP_BLUEPRINT: InternshipRecord[] = [
     priority: 'Medium',
     applicationDate: '2026-09-05',
     notes: 'Need to tailor portfolio and highlight React/TypeScript projects.',
+    stipend: '$7,600/mo',
+    stipendAmount: 7600,
+    interviewRounds: 2,
+    prepHoursRequired: 10,
   },
   {
     id: 'INT-105',
@@ -60,5 +75,39 @@ export const SAMPLE_INTERNSHIP_BLUEPRINT: InternshipRecord[] = [
     priority: 'High',
     applicationDate: '2026-08-28',
     notes: 'Urgent deadline in 2 weeks. High interest in payments infrastructure.',
+    stipend: '$9,800/mo',
+    stipendAmount: 9800,
+    interviewRounds: 4,
+    prepHoursRequired: 24,
+  },
+  {
+    id: 'INT-106',
+    companyName: 'Apple',
+    jobRole: 'CoreOS Systems Intern',
+    location: 'Cupertino, CA',
+    applicationDeadline: '2026-10-30',
+    applicationStatus: 'Bookmarked',
+    priority: 'High',
+    applicationDate: '2026-09-10',
+    notes: 'Requires strong low-level C programming and memory management.',
+    stipend: '$9,500/mo',
+    stipendAmount: 9500,
+    interviewRounds: 4,
+    prepHoursRequired: 22,
+  },
+  {
+    id: 'INT-107',
+    companyName: 'Netflix',
+    jobRole: 'Platform Engineering Intern',
+    location: 'Los Gatos, CA',
+    applicationDeadline: '2026-10-20',
+    applicationStatus: 'Under Review',
+    priority: 'Medium',
+    applicationDate: '2026-09-08',
+    notes: 'Focus on distributed systems and microservices observability.',
+    stipend: '$9,000/mo',
+    stipendAmount: 9000,
+    interviewRounds: 3,
+    prepHoursRequired: 18,
   },
 ];

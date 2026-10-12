@@ -3,6 +3,10 @@ export interface User {
   name: string;
   email: string;
   createdAt: string;
+  college?: string;
+  major?: string;
+  targetRole?: string;
+  graduationYear?: string;
 }
 
 export interface RegisteredUser extends User {

@@ -1,386 +1,519 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   GraduationCap,
   LogOut,
   Layers,
   GitBranch,
   ArrowUpDown,
-  Search,
   Cpu,
-  User as UserIcon,
-  Sparkles,
-  Calendar,
-  MapPin,
-  Tag,
-  ShieldCheck,
-  CheckCircle2,
-  Info,
+  Terminal,
+  LogIn,
+  UserPlus,
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/Button';
+import { UserProfile } from '../components/UserProfile';
+import { InternshipFilter } from '../components/InternshipFilter';
+import { InternshipApplicationForm } from '../components/InternshipApplicationForm';
+import {
+  filterAndSortInternships,
+  getStatusCounts,
+  SortField,
+  SortDirection,
+} from '../utils/internshipFilter';
 import { SAMPLE_INTERNSHIP_BLUEPRINT } from '../data/schema';
+import { InternshipRecord, ApplicationStatus, ActionRecord } from '../types/internship';
+import { internshipApiService } from '../services/internshipApiService';
+import { Phase1LinearView } from '../components/phases/Phase1LinearView';
+import { Phase2TreesGraphsView } from '../components/phases/Phase2TreesGraphsView';
+import { Phase3SearchSortView } from '../components/phases/Phase3SearchSortView';
+import { Phase4ProblemSolvingView } from '../components/phases/Phase4ProblemSolvingView';
+import { CBackendStudioView } from '../components/phases/CBackendStudioView';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Welcome notice banner
+  const [welcomeAlert, setWelcomeAlert] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (location.state && (location.state as { message?: string }).message) {
+      setWelcomeAlert((location.state as { message: string }).message);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  // Navigation tab for the 4 DSA Phases + C Backend Studio
+  const [activePhase, setActivePhase] = useState<
+    'phase1' | 'phase2' | 'phase3' | 'phase4' | 'c_backend'
+  >('phase1');
+
+  // Shared state across the application
+  const [records, setRecords] = useState<InternshipRecord[]>(SAMPLE_INTERNSHIP_BLUEPRINT);
+  const [undoStack, setUndoStack] = useState<ActionRecord[]>([]);
+  const [reviewQueue, setReviewQueue] = useState<InternshipRecord[]>(() => [
+    SAMPLE_INTERNSHIP_BLUEPRINT[0],
+    SAMPLE_INTERNSHIP_BLUEPRINT[1],
+  ]);
+
+  // Filter & sorting state for internship applications on dashboard
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [sortField, setSortField] = useState<SortField>('deadline');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Add application form toggle
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Status counts for quick filter buttons
+  const statusCounts = useMemo(() => getStatusCounts(records), [records]);
+
+  // Filtered and sorted internship applications
+  const filteredRecords = useMemo(
+    () =>
+      filterAndSortInternships(
+        records,
+        statusFilter,
+        sortField,
+        sortDirection,
+        searchQuery
+      ),
+    [records, statusFilter, sortField, sortDirection, searchQuery]
+  );
+
+  const isFiltered =
+    statusFilter !== 'ALL' ||
+    searchQuery.trim() !== '' ||
+    sortField !== 'deadline' ||
+    sortDirection !== 'asc';
+
+  const handleResetFilters = () => {
+    setStatusFilter('ALL');
+    setSortField('deadline');
+    setSortDirection('asc');
+    setSearchQuery('');
+  };
+
+  const handleToggleSortDirection = () => {
+    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  };
+
+  // Load user records from persistent C SQLite backend
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const fetched = await internshipApiService.fetchInternships();
+        if (fetched && fetched.length > 0) {
+          setRecords(fetched);
+          setReviewQueue([fetched[0], fetched[1] || fetched[0]]);
+        } else {
+          // If no records exist in C database yet, use blueprint and persist them
+          setRecords(SAMPLE_INTERNSHIP_BLUEPRINT);
+          setReviewQueue([
+            SAMPLE_INTERNSHIP_BLUEPRINT[0],
+            SAMPLE_INTERNSHIP_BLUEPRINT[1],
+          ]);
+          // Sync blueprint records to user's database
+          for (const item of SAMPLE_INTERNSHIP_BLUEPRINT) {
+            internshipApiService.addInternship(item);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not sync records with C backend, using memory state:', e);
+      }
+    };
+
+    if (user) {
+      loadData();
+    }
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
   };
 
-  // Official 4-Phase Roadmap according to the project blueprint
-  const roadmapPhases = [
-    {
-      phaseNumber: 'Phase 1',
-      title: 'Linear Data Structures',
-      status: 'Next Development Step',
-      statusColor: 'bg-indigo-50 border-indigo-200 text-indigo-700',
-      icon: Layers,
-      accent: 'border-indigo-200 bg-indigo-50/50 text-indigo-700',
-      description: 'Core custom data structures for storing and manipulating internship applications.',
-      items: [
-        'Internship Record Data Model (ID, Company, Role, Deadline, Status, Priority)',
-        'Custom Linked List for primary storage with Insert, Delete & Traverse operations',
-        'Stack using Linked List for undoing recent internship actions & status changes',
-        'Queue using Linked List for chronological application review pipeline',
-        'Expression Stack for educational query & expression parsing',
-      ],
-    },
-    {
-      phaseNumber: 'Phase 2',
-      title: 'Trees & Graphs',
-      status: 'Upcoming',
-      statusColor: 'bg-slate-100 border-slate-200 text-slate-600',
-      icon: GitBranch,
-      accent: 'border-blue-200 bg-blue-50/50 text-blue-700',
-      description: 'Hierarchical organization and relational mapping between companies, roles, and skills.',
-      items: [
-        'Binary Search Tree (BST) for fast structured storage indexed by company/date',
-        'Inorder (sorted order), Preorder (serialization), & Postorder tree traversals',
-        'Graph Adjacency List: Company → Available Roles & Required Skills → Opportunities',
-        'Graph Traversals: Breadth-First Search (BFS) & Depth-First Search (DFS)',
-      ],
-    },
-    {
-      phaseNumber: 'Phase 3',
-      title: 'Searching & Sorting',
-      status: 'Upcoming',
-      statusColor: 'bg-slate-100 border-slate-200 text-slate-600',
-      icon: ArrowUpDown,
-      accent: 'border-purple-200 bg-purple-50/50 text-purple-700',
-      description: 'Algorithmic filtering and multi-attribute orderings on actual internship records.',
-      items: [
-        'Linear Search across company names, roles, and status tags',
-        'Binary Search on sorted company indices with performance benchmarking',
-        'Merge Sort: Stable sorting by upcoming deadline (earliest to latest)',
-        'Quick Sort: In-place partitioning by company name or application date',
-        'Insertion Sort: Adaptive sorting for nearly-ordered submissions',
-      ],
-    },
-    {
-      phaseNumber: 'Phase 4',
-      title: 'Algorithmic Problem Solving',
-      status: 'Upcoming',
-      statusColor: 'bg-slate-100 border-slate-200 text-slate-600',
-      icon: Cpu,
-      accent: 'border-teal-200 bg-teal-50/50 text-teal-700',
-      description: 'Advanced optimization algorithms solving practical student scheduling challenges.',
-      items: [
-        'Greedy Algorithm: Interval scheduling to maximize non-conflicting interview rounds',
-        'Dynamic Programming: 0/1 Knapsack optimization for student stipend / time budget',
-        'Backtracking: Constraint-satisfaction interview time slot assignment engine',
-        'Final practical viva demonstration & algorithm performance analytics',
-      ],
-    },
-  ];
+  // Add record
+  const handleAddRecord = (record: InternshipRecord, atHead: boolean) => {
+    setRecords((prev) => (atHead ? [record, ...prev] : [...prev, record]));
+    // Persist to C backend SQLite
+    internshipApiService.addInternship(record);
+
+    // If active filter would hide the new record, reset status filter so user sees it
+    if (statusFilter !== 'ALL') {
+      const normStatus = statusFilter.toLowerCase();
+      const normRec = record.applicationStatus.toLowerCase();
+      const matches =
+        (normStatus === 'pending' && (normRec === 'bookmarked' || normRec === 'under review')) ||
+        (normStatus === 'interview' && normRec === 'interviewing') ||
+        normStatus === normRec;
+      if (!matches) {
+        setStatusFilter('ALL');
+      }
+    }
+
+    const action: ActionRecord = {
+      id: `ACT-${Date.now()}`,
+      type: 'INSERT',
+      record,
+      timestamp: new Date().toLocaleTimeString(),
+      description: `Inserted application '${record.companyName}' (${atHead ? 'Head' : 'Tail'})`,
+    };
+    setUndoStack((prev) => [action, ...prev]);
+  };
+
+  // Delete record
+  const handleDeleteRecord = (id: string) => {
+    const target = records.find((r) => r.id === id);
+    if (!target) return;
+
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    // Remove from C backend SQLite
+    internshipApiService.deleteInternship(id);
+
+    const action: ActionRecord = {
+      id: `ACT-${Date.now()}`,
+      type: 'DELETE',
+      record: target,
+      timestamp: new Date().toLocaleTimeString(),
+      description: `Deleted application '${target.companyName}' (${target.id})`,
+    };
+    setUndoStack((prev) => [action, ...prev]);
+  };
+
+  // Update status
+  const handleUpdateStatus = (id: string, newStatus: ApplicationStatus) => {
+    const target = records.find((r) => r.id === id);
+    if (!target) return;
+    const oldStatus = target.applicationStatus;
+
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, applicationStatus: newStatus } : r))
+    );
+    // Update on C backend SQLite
+    internshipApiService.updateInternship(id, { applicationStatus: newStatus });
+
+    const action: ActionRecord = {
+      id: `ACT-${Date.now()}`,
+      type: 'STATUS_CHANGE',
+      record: { ...target, applicationStatus: newStatus },
+      previousStatus: oldStatus,
+      newStatus,
+      timestamp: new Date().toLocaleTimeString(),
+      description: `Updated '${target.companyName}' status from ${oldStatus} to ${newStatus}`,
+    };
+    setUndoStack((prev) => [action, ...prev]);
+  };
+
+  // Stack Undo (O(1) Pop)
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const [lastAction, ...remainingStack] = undoStack;
+    setUndoStack(remainingStack);
+
+    if (lastAction.type === 'INSERT') {
+      setRecords((prev) => prev.filter((r) => r.id !== lastAction.record.id));
+      internshipApiService.deleteInternship(lastAction.record.id);
+    } else if (lastAction.type === 'DELETE') {
+      setRecords((prev) => [...prev, lastAction.record]);
+      internshipApiService.addInternship(lastAction.record);
+    } else if (lastAction.type === 'STATUS_CHANGE' && lastAction.previousStatus) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === lastAction.record.id
+            ? { ...r, applicationStatus: lastAction.previousStatus! }
+            : r
+        )
+      );
+      internshipApiService.updateInternship(lastAction.record.id, {
+        applicationStatus: lastAction.previousStatus,
+      });
+    }
+  };
+
+  // Queue Enqueue (O(1))
+  const handleEnqueue = (record: InternshipRecord) => {
+    setReviewQueue((prev) => [...prev, record]);
+  };
+
+  // Queue Dequeue (O(1))
+  const handleDequeue = () => {
+    if (reviewQueue.length === 0) return;
+    setReviewQueue((prev) => prev.slice(1));
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Top Navigation Bar */}
+    <div className="min-h-screen bg-white flex flex-col font-sans">
+      {/* Top Navbar: Basic white background with light grey border */}
       <header
         id="dashboard-navbar"
-        className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs"
+        className="bg-white border-b border-gray-200 sticky top-0 z-30"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-xs">
-              <GraduationCap className="w-5 h-5" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+              <GraduationCap className="w-4 h-4" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-slate-900 text-base tracking-tight leading-tight">
-                Smart Internship <span className="text-indigo-600">Tracker</span>
-              </span>
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                College DSA Project • Phase 1
-              </span>
-            </div>
+            <span className="font-bold text-gray-900 text-base">
+              Smart Internship Tracker
+            </span>
           </div>
 
-          {/* User Profile Info & Logout Button */}
-          <div className="flex items-center gap-3 sm:gap-5">
-            {user && (
-              <div
-                id="user-profile-badge"
-                className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-100/80 border border-slate-200/60 text-xs"
-              >
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'S'}
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-slate-800 leading-none">
-                    {user.name}
-                  </p>
-                  <p className="text-slate-500 text-[10px] mt-0.5 leading-none">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-            )}
+          {/* Navigation Links for DSA Phases */}
+          <nav className="hidden lg:flex items-center gap-4 text-xs font-medium text-gray-700">
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase1')}
+              className={`hover:text-blue-600 cursor-pointer ${
+                activePhase === 'phase1' ? 'text-blue-600 font-bold underline' : ''
+              }`}
+            >
+              Phase 1: Linear
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase2')}
+              className={`hover:text-blue-600 cursor-pointer ${
+                activePhase === 'phase2' ? 'text-blue-600 font-bold underline' : ''
+              }`}
+            >
+              Phase 2: Trees & Graphs
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase3')}
+              className={`hover:text-blue-600 cursor-pointer ${
+                activePhase === 'phase3' ? 'text-blue-600 font-bold underline' : ''
+              }`}
+            >
+              Phase 3: Search & Sort
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase4')}
+              className={`hover:text-blue-600 cursor-pointer ${
+                activePhase === 'phase4' ? 'text-blue-600 font-bold underline' : ''
+              }`}
+            >
+              Phase 4: Problem Solving
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePhase('c_backend')}
+              className={`hover:text-blue-600 cursor-pointer flex items-center gap-1 ${
+                activePhase === 'c_backend' ? 'text-blue-600 font-bold underline' : ''
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>C Backend Studio</span>
+            </button>
+          </nav>
 
-            <Button
+          {/* User Profile & Logout Button */}
+          <div className="flex items-center gap-2">
+            <UserProfile variant="header-menu" />
+            <button
               id="dashboard-logout-button"
               type="button"
-              variant="outline"
-              size="sm"
               onClick={handleLogout}
-              icon={<LogOut className="w-4 h-4 text-slate-500" />}
-              className="text-slate-700 hover:text-red-600 hover:border-red-200 hover:bg-red-50/50 transition-colors"
+              className="border border-gray-300 hover:bg-red-50 text-red-600 font-medium py-1 px-3 rounded text-xs flex items-center gap-1 cursor-pointer"
             >
-              Logout
-            </Button>
+              <LogOut className="w-3 h-3" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {/* Welcome Section */}
-        <div
-          id="welcome-banner"
-          className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs relative overflow-hidden mb-8"
-        >
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold mb-3">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Phase 1A: Authentication Established</span>
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        {/* Welcome Alert */}
+        {welcomeAlert && (
+          <div
+            id="dashboard-welcome-alert"
+            className="mb-4 p-3 bg-green-50 border border-green-300 rounded text-xs text-green-800 flex justify-between items-center"
+          >
+            <span>{welcomeAlert}</span>
+            <button
+              type="button"
+              onClick={() => setWelcomeAlert(null)}
+              className="text-green-700 hover:text-green-900 font-bold ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* User Profile Component - Displays user details from session */}
+        <UserProfile
+          variant="banner"
+          stats={{
+            totalApplications: records.length,
+            queueCount: reviewQueue.length,
+            historyCount: undoStack.length,
+          }}
+        />
+
+        {/* Phase Selection Tabs: Simple buttons */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50 border border-gray-300 rounded">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase1')}
+              className={`px-3 py-1.5 rounded text-xs font-medium cursor-pointer ${
+                activePhase === 'phase1'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Phase 1: Linear DSA
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase2')}
+              className={`px-3 py-1.5 rounded text-xs font-medium cursor-pointer ${
+                activePhase === 'phase2'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Phase 2: Trees & Graphs
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase3')}
+              className={`px-3 py-1.5 rounded text-xs font-medium cursor-pointer ${
+                activePhase === 'phase3'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Phase 3: Search & Sort
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePhase('phase4')}
+              className={`px-3 py-1.5 rounded text-xs font-medium cursor-pointer ${
+                activePhase === 'phase4'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Phase 4: Problem Solving
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePhase('c_backend')}
+              className={`px-3 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 ${
+                activePhase === 'c_backend'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>C Backend Studio</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-gray-600 pr-2">
+            Records: <strong className="text-gray-900">{records.length}</strong> | Undo Actions:{' '}
+            <strong className="text-gray-900">{undoStack.length}</strong>
+          </div>
+        </div>
+
+        {/* Phase Views - Preserved DSA implementations */}
+        {activePhase === 'phase1' && (
+          <div className="space-y-6">
+            {/* Dashboard Applications Header & Add Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  Internship Applications
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Track pipeline stages, sort deadlines, and explore linear data structures persisted with C & SQLite.
+                </p>
+              </div>
+
+              <button
+                id="dashboard-add-application-toggle-btn"
+                type="button"
+                onClick={() => setShowAddForm((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer transition-colors shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{showAddForm ? 'Close Add Form' : 'Add New Application'}</span>
+              </button>
             </div>
 
-            <h1
-              id="welcome-heading"
-              className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900"
-            >
-              Welcome to Smart Internship Deadline Tracker
-            </h1>
-
-            <p
-              id="welcome-subtitle"
-              className="mt-2 text-base text-slate-600 font-normal leading-relaxed"
-            >
-              Your internship management system will be available in the next phase.
-            </p>
-
-            {/* Scope notification */}
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50/80 border border-indigo-100 text-xs text-indigo-900 font-medium">
-              <Info className="w-4 h-4 text-indigo-600 shrink-0" />
-              <span>For now, only authentication is functional.</span>
-            </div>
-
-            {user && (
-              <div className="mt-5 pt-5 border-t border-slate-100 flex flex-wrap items-center gap-5 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                  <strong>Logged in as:</strong> {user.name} ({user.email})
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                  <strong>Storage:</strong> LocalStorage Student Auth Session
-                </span>
+            {/* Reusable Form Component for Adding New Internship Applications */}
+            {showAddForm && (
+              <div className="animate-in fade-in duration-150">
+                <InternshipApplicationForm
+                  onSubmit={(record, atHead) => {
+                    handleAddRecord(record, atHead);
+                    setShowAddForm(false);
+                  }}
+                  onCancel={() => setShowAddForm(false)}
+                  title="Add New Internship Application"
+                  description="Enter company name, role, status, and deadline date. The record will be persisted to SQLite and added to the Doubly Linked List."
+                />
               </div>
             )}
+
+            {/* Filter component for internship applications on dashboard */}
+            <InternshipFilter
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              sortField={sortField}
+              onSortFieldChange={setSortField}
+              sortDirection={sortDirection}
+              onSortDirectionToggle={handleToggleSortDirection}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              totalCount={records.length}
+              filteredCount={filteredRecords.length}
+              statusCounts={statusCounts}
+              onReset={handleResetFilters}
+            />
+
+            <Phase1LinearView
+              records={filteredRecords}
+              allRecordsCount={records.length}
+              isFiltered={isFiltered}
+              onResetFilters={handleResetFilters}
+              onAddRecord={handleAddRecord}
+              onDeleteRecord={handleDeleteRecord}
+              onUpdateStatus={handleUpdateStatus}
+              undoStack={undoStack}
+              onUndo={handleUndo}
+              reviewQueue={reviewQueue}
+              onEnqueue={handleEnqueue}
+              onDequeue={handleDequeue}
+            />
           </div>
-        </div>
+        )}
 
-        {/* Project Roadmap Section */}
-        <section id="project-roadmap-section" aria-labelledby="roadmap-heading" className="mb-10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
-            <div>
-              <h2
-                id="roadmap-heading"
-                className="text-xl font-bold text-slate-900 tracking-tight"
-              >
-                Project Roadmap
-              </h2>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Official 4-Phase Data Structures & Algorithms Blueprint
-              </p>
-            </div>
-            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 self-start sm:self-auto">
-              Phase 1A Active • Phase 1B/DSA Next
-            </span>
-          </div>
+        {activePhase === 'phase2' && <Phase2TreesGraphsView records={records} />}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {roadmapPhases.map((phase) => {
-              const Icon = phase.icon;
-              return (
-                <div
-                  key={phase.phaseNumber}
-                  id={`roadmap-${phase.phaseNumber.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center border ${phase.accent}`}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 block">
-                            {phase.phaseNumber}
-                          </span>
-                          <h3 className="text-base font-bold text-slate-900">
-                            {phase.title}
-                          </h3>
-                        </div>
-                      </div>
+        {activePhase === 'phase3' && <Phase3SearchSortView records={records} />}
 
-                      <span
-                        className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${phase.statusColor}`}
-                      >
-                        {phase.status}
-                      </span>
-                    </div>
+        {activePhase === 'phase4' && <Phase4ProblemSolvingView records={records} />}
 
-                    <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                      {phase.description}
-                    </p>
-
-                    <div className="space-y-2 border-t border-slate-100 pt-3.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                        Planned Capabilities:
-                      </p>
-                      <ul className="space-y-2 text-xs text-slate-700">
-                        {phase.items.map((item, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                            <span className="leading-snug">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Future Data Model Preview: Internship Record */}
-        <section
-          id="data-model-preview-section"
-          aria-labelledby="data-model-heading"
-          className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs mb-8"
-        >
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                Official Blueprint Data Model
-              </span>
-            </div>
-            <h3 id="data-model-heading" className="text-lg font-bold text-slate-900 mt-0.5">
-              Internship Record Structure
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              The application architecture is structured around this exact data model. The Linked List, BST, and Sorting algorithms will operate directly on these entities in later phases.
-            </p>
-          </div>
-
-          {/* Table displaying the Blueprint Fields */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-xs text-left">
-              <thead className="bg-slate-50 font-semibold text-slate-700">
-                <tr>
-                  <th className="py-2.5 px-3">Field</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3">DSA Usage in Project</th>
-                  <th className="py-2.5 px-3">Sample Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white text-slate-600">
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">id</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string</td>
-                  <td className="py-2 px-3">Node key for Linked List traversal & BST index</td>
-                  <td className="py-2 px-3 text-slate-700">"INT-101"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">companyName</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string</td>
-                  <td className="py-2 px-3">Graph source node & Quick Sort alphabetical key</td>
-                  <td className="py-2 px-3 text-slate-700">"Google"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">jobRole</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string</td>
-                  <td className="py-2 px-3">Linear & Binary Search target field</td>
-                  <td className="py-2 px-3 text-slate-700">"Software Engineer Intern"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">location</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string</td>
-                  <td className="py-2 px-3">Location filter criteria</td>
-                  <td className="py-2 px-3 text-slate-700">"Mountain View, CA"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">applicationDeadline</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string (YYYY-MM-DD)</td>
-                  <td className="py-2 px-3 font-medium text-indigo-700">Merge Sort comparator & Urgency countdown</td>
-                  <td className="py-2 px-3 text-slate-700">"2026-10-15"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">applicationStatus</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">enum Status</td>
-                  <td className="py-2 px-3">Queue state transition (Applied → Review → Interview)</td>
-                  <td className="py-2 px-3 text-slate-700">"Applied"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">priority</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">'High' | 'Medium' | 'Low'</td>
-                  <td className="py-2 px-3">Priority ordering & Greedy interval selection</td>
-                  <td className="py-2 px-3 text-slate-700">"High"</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">applicationDate</td>
-                  <td className="py-2 px-3 font-mono text-indigo-600">string (YYYY-MM-DD)</td>
-                  <td className="py-2 px-3">Chronological Linked List insertion tracking</td>
-                  <td className="py-2 px-3 text-slate-700">"2026-09-01"</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Academic Architecture Viva Notes */}
-        <div className="bg-slate-100/70 rounded-xl p-5 border border-slate-200 text-xs text-slate-600">
-          <div className="flex items-center gap-2 font-semibold text-slate-800 text-sm mb-2">
-            <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-            <span>Academic Architecture & Viva Note</span>
-          </div>
-          <p className="leading-relaxed">
-            In compliance with the official project rules:
-            <strong> Authentication is cleanly decoupled from Data Structures.</strong> Login and Signup do not force artificial data structures. Instead, the folder structure (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-800">src/data-structures/LinkedList</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-800">src/data-structures/Stack</code>, and <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-800">src/data-structures/Queue</code>) and data models (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-800">InternshipRecord</code>) are primed so that Phase 1 linear structures can be implemented immediately in the next step.
-          </p>
-        </div>
+        {activePhase === 'c_backend' && <CBackendStudioView />}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        <p>Smart Internship Deadline Tracker • College DSA Practical Project • Phase 1 Prototype</p>
+      {/* Simple Footer */}
+      <footer className="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-10">
+        <p>Smart Internship Tracker • C Language POSIX Backend + SQLite3 Persistence • DSA Phases 1–4</p>
       </footer>
     </div>
   );

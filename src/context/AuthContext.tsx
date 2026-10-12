@@ -12,8 +12,11 @@ interface AuthContextType {
   loading: boolean;
   rememberedEmail: string;
   login: (credentials: LoginCredentials) => Promise<AuthResponse>;
-  signup: (data: SignupData) => Promise<AuthResponse>;
+  signup: (data: SignupData, autoLogin?: boolean) => Promise<AuthResponse>;
   logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<AuthResponse>;
+  getRegisteredAccounts: () => User[];
+  switchAccount: (userId: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,14 +57,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   };
 
-  const signup = async (data: SignupData): Promise<AuthResponse> => {
-    // Signup does NOT log the user in automatically according to project spec
-    return await authService.register(data);
+  const signup = async (data: SignupData, autoLogin: boolean = true): Promise<AuthResponse> => {
+    const res = await authService.register(data, autoLogin);
+    if (res.success && res.user && autoLogin) {
+      setUser(res.user);
+    }
+    return res;
   };
 
   const logout = async (): Promise<void> => {
     await authService.logout();
     setUser(null);
+  };
+
+  const updateProfile = async (updates: Partial<User>): Promise<AuthResponse> => {
+    const res = await authService.updateProfile(updates);
+    if (res.success && res.user) {
+      setUser(res.user);
+    }
+    return res;
+  };
+
+  const getRegisteredAccounts = (): User[] => {
+    return authService.getRegisteredAccounts();
+  };
+
+  const switchAccount = async (userId: string): Promise<boolean> => {
+    const switchedUser = await authService.switchAccount(userId);
+    if (switchedUser) {
+      setUser(switchedUser);
+      return true;
+    }
+    return false;
   };
 
   return (
@@ -74,6 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         logout,
+        updateProfile,
+        getRegisteredAccounts,
+        switchAccount,
       }}
     >
       {children}
