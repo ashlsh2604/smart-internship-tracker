@@ -6,7 +6,32 @@
  * ============================================================================
  */
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <process.h>
+#include <io.h>
+#pragma comment(lib, "ws2_32.lib")
+#define close(s) closesocket(s)
+#define sleep_ms(ms) Sleep(ms)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+typedef intptr_t ssize_t;
+#else
 #define _GNU_SOURCE
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#define sleep_ms(ms) usleep((ms) * 1000)
+#endif
+
 #include "../include/http_server.h"
 #include "../include/db.h"
 #include "../include/crypto.h"
@@ -18,15 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdbool.h>
-#include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
 #define BUFFER_SIZE 65536
 #define MAX_PATH_LEN 512
@@ -480,7 +497,7 @@ static void handle_client(int client_fd) {
         }
 
         if (!json_get_string(body, "id", rec.id, sizeof(rec.id)) || strlen(rec.id) == 0) {
-            snprintf(rec.id, sizeof(rec.id), "INT-%ld", (long)(time(NULL) % 100000));
+            snprintf(rec.id, sizeof(rec.id), "INT-%d", 100 + (rand() % 900));
         }
 
         json_get_string(body, "location", rec.location, sizeof(rec.location));
@@ -598,11 +615,18 @@ static void handle_client(int client_fd) {
      * Route: GET /api/c-backend/status
      * ---------------------------------------------------------------------- */
     if (strcmp(method, "GET") == 0 && strcmp(clean_path, "/api/c-backend/status") == 0) {
-        const char *resp =
+        char resp[1024];
+        snprintf(resp, sizeof(resp),
             "{"
             "\"backend_language\":\"C\","
             "\"c_standard\":\"C11\","
+#ifdef _WIN32
+            "\"platform\":\"Windows 10/11 Native\","
+            "\"compiler\":\"GCC (MinGW-w64) / Clang / MSVC\","
+#else
+            "\"platform\":\"POSIX / Linux\","
             "\"compiler\":\"GCC (GNU Compiler Collection)\","
+#endif
             "\"database\":\"SQLite3 Persistent Engine\","
             "\"database_file\":\"tracker.db\","
             "\"gcc_available\":true,"
@@ -614,7 +638,7 @@ static void handle_client(int client_fd) {
             "\"Phase 3: Searching & Sorting Algorithms (Linear/Binary Search, Merge/Quick/Insertion Sort)\","
             "\"Phase 4: Algorithmic Problem Solving (Greedy Interval Scheduling, 0/1 Knapsack DP, Backtracking Solver)\""
             "]"
-            "}";
+            "}");
         send_json(client_fd, 200, resp);
         close(client_fd);
         return;
@@ -810,14 +834,25 @@ int start_http_server(const HttpServerConfig *config) {
         return -1;
     }
 
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+#ifdef _WIN32
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        fprintf(stderr, "[C Server Fatal] WSAStartup failed: %d\n", WSAGetLastError());
+        return -1;
+    }
+#endif
+
+    int server_fd = (int)socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("[C Server] Socket creation failed");
+#ifdef _WIN32
+        WSACleanup();
+#endif
         return -1;
     }
 
     int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -828,19 +863,31 @@ int start_http_server(const HttpServerConfig *config) {
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("[C Server] Socket bind failed");
         close(server_fd);
+#ifdef _WIN32
+        WSACleanup();
+#endif
         return -1;
     }
 
     if (listen(server_fd, 64) < 0) {
         perror("[C Server] Listen failed");
         close(server_fd);
+#ifdef _WIN32
+        WSACleanup();
+#endif
         return -1;
     }
 
     printf("====================================================================\n");
     printf("SMART INTERNSHIP TRACKER - C BACKEND HTTP REST SERVER\n");
     printf("====================================================================\n");
+#ifdef _WIN32
+    printf("[C Server] OS: Windows 10/11 Native (Win32 Sockets & Native Threads)\n");
+    printf("[C Server] Engine: C11 (MinGW-w64 / MSVC / Clang)\n");
+#else
+    printf("[C Server] OS: POSIX / Linux\n");
     printf("[C Server] Engine: C11 (GNU GCC)\n");
+#endif
     printf("[C Server] Database: SQLite3 Persistent DB (%s)\n", db_path);
     printf("[C Server] Listening on http://0.0.0.0:%d\n", port);
     printf("[C Server] User Isolation: ENFORCED (Multi-user SQLite authorization)\n");
@@ -851,21 +898,31 @@ int start_http_server(const HttpServerConfig *config) {
 
     while (1) {
         struct sockaddr_in client_addr;
-        socklen_t client_len = sizeof(client_addr);
-        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
+        int client_len = sizeof(client_addr);
+        int client_fd = (int)accept(server_fd, (struct sockaddr*)&client_addr, (socklen_t*)&client_len);
         if (client_fd < 0) {
             continue;
         }
 
+#ifdef _WIN32
+        uintptr_t thread_handle = _beginthread((void (*)(void*))client_thread_entry, 0, (void*)(intptr_t)client_fd);
+        if (thread_handle == (uintptr_t)-1) {
+            handle_client(client_fd);
+        }
+#else
         pthread_t thread;
         if (pthread_create(&thread, NULL, client_thread_entry, (void*)(intptr_t)client_fd) == 0) {
             pthread_detach(thread);
         } else {
             handle_client(client_fd);
         }
+#endif
     }
 
     close(server_fd);
     db_close();
+#ifdef _WIN32
+    WSACleanup();
+#endif
     return 0;
 }

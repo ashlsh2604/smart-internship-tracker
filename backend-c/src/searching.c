@@ -8,7 +8,9 @@
 #include "../include/searching.h"
 #include <time.h>
 #include <ctype.h>
+#ifndef _WIN32
 #include <strings.h>
+#endif
 
 SearchResult search_linear(const InternshipRecord arr[], int size, const char* query) {
     SearchResult res;

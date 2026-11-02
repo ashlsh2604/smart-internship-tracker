@@ -11,8 +11,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <wincrypt.h>
+#include <process.h>
+#define getpid _getpid
+#else
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 
 #define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
 #define CH(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
@@ -152,16 +161,27 @@ void sha256_hash_string(const char *input, char output_hex[65]) {
 
 void generate_salt(char output_hex[33]) {
     uint8_t random_bytes[16];
+    bool got_random = false;
+#ifdef _WIN32
+    HCRYPTPROV hCryptProv = 0;
+    if (CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        if (CryptGenRandom(hCryptProv, 16, random_bytes)) {
+            got_random = true;
+        }
+        CryptReleaseContext(hCryptProv, 0);
+    }
+#else
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd >= 0) {
-        if (read(fd, random_bytes, 16) != 16) {
-            srand((unsigned int)time(NULL));
-            for (int i = 0; i < 16; i++) random_bytes[i] = rand() % 256;
+        if (read(fd, random_bytes, 16) == 16) {
+            got_random = true;
         }
         close(fd);
-    } else {
-        srand((unsigned int)time(NULL));
-        for (int i = 0; i < 16; i++) random_bytes[i] = rand() % 256;
+    }
+#endif
+    if (!got_random) {
+        srand((unsigned int)time(NULL) ^ (unsigned int)getpid());
+        for (int i = 0; i < 16; i++) random_bytes[i] = (uint8_t)(rand() % 256);
     }
 
     for (int i = 0; i < 16; i++) {
@@ -178,16 +198,27 @@ void hash_password(const char *password, const char *salt, char output_hash[65])
 
 void generate_token(char output_token[65]) {
     uint8_t random_bytes[32];
+    bool got_random = false;
+#ifdef _WIN32
+    HCRYPTPROV hCryptProv = 0;
+    if (CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        if (CryptGenRandom(hCryptProv, 32, random_bytes)) {
+            got_random = true;
+        }
+        CryptReleaseContext(hCryptProv, 0);
+    }
+#else
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd >= 0) {
-        if (read(fd, random_bytes, 32) != 32) {
-            srand((unsigned int)time(NULL) ^ getpid());
-            for (int i = 0; i < 32; i++) random_bytes[i] = rand() % 256;
+        if (read(fd, random_bytes, 32) == 32) {
+            got_random = true;
         }
         close(fd);
-    } else {
-        srand((unsigned int)time(NULL) ^ getpid());
-        for (int i = 0; i < 32; i++) random_bytes[i] = rand() % 256;
+    }
+#endif
+    if (!got_random) {
+        srand((unsigned int)time(NULL) ^ (unsigned int)getpid());
+        for (int i = 0; i < 32; i++) random_bytes[i] = (uint8_t)(rand() % 256);
     }
 
     for (int i = 0; i < 32; i++) {

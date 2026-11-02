@@ -26,6 +26,14 @@ export interface StatusCounts {
 }
 
 /**
+ * Strips random timestamp numbers or underscores from IDs (e.g. "INT-105_3066" -> "INT-105")
+ */
+export function cleanId(id: string | undefined | null): string {
+  if (!id) return '';
+  return id.replace(/_.*$/, '').replace(/-\d{4,}$/, '');
+}
+
+/**
  * Pipeline logical rank for sorting by status:
  * 1: Bookmarked / Pending
  * 2: Under Review

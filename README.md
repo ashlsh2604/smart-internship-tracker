@@ -1,10 +1,12 @@
-# Smart Internship Tracker — C Backend & Data Structures Project
+# Smart Internship Tracker — Native Windows C Backend & Data Structures Project
 
 A full-stack college project for tracking internship applications, deadlines, and interviews, built with a **native C HTTP REST server**, persistent **SQLite3 database**, and a clean **React frontend** showcasing classic Data Structures and Algorithms (DSA).
 
+Runs **100% natively on Windows 10 / 11** without requiring Linux, WSL, Docker, or virtual machines!
+
 ---
 
-## 1. System Architecture
+## 1. System Architecture (Native Windows & Multi-Platform)
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -13,25 +15,29 @@ A full-stack college project for tracking internship applications, deadlines, an
 │  - Student Login & Sign-Up pages                       │
 │  - Student User Profile with session details           │
 │  - Interactive DSA Visualizations (Phases 1–4)         │
+│  - Internship Filters & Add Application Form Modal     │
 └──────────────────────────┬─────────────────────────────┘
                            │ HTTP REST APIs (/api/*)
                            ▼
 ┌────────────────────────────────────────────────────────┐
-│               Node Development Proxy                   │
+│        Development Server & Host (Node.js + Vite)      │
+│  - Runs natively on Windows 10/11, macOS, and Linux    │
 │  - Serves React SPA on port 3000                       │
-│  - Automatically launches & proxies to C Backend       │
+│  - Automatically launches & proxies to native C Backend│
+│  - Integrated auto-healing fallback engine             │
 └──────────────────────────┬─────────────────────────────┘
-                           │ TCP / HTTP (port 8080)
+                           │ TCP / HTTP (port 9095)
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │          Backend — Pure C Language (C11)               │
-│  - Multi-threaded POSIX Socket HTTP Server             │
+│  - Windows Native (Win32 Winsock2 & Multi-Threading)   │
+│  - Compiles with MinGW-w64 GCC, Clang, or MSVC (cl.exe)│
 │  - SHA-256 Hashing + Cryptographic Salt for Passwords  │
 │  - Bearer Token Session Management                     │
 │  - User-isolated Internship CRUD REST Endpoints        │
 │  - Native C DSA Engine (Linked List, Trees, Sort, DP)  │
 └──────────────────────────┬─────────────────────────────┘
-                           │ SQL C API (libsqlite3)
+                           │ SQL C API (libsqlite3 / tracker.db)
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │           Database — SQLite3 (tracker.db)              │
@@ -47,10 +53,18 @@ A full-stack college project for tracking internship applications, deadlines, an
 
 ```text
 .
+├── .vscode/                    # VS Code Native Windows Configuration
+│   ├── settings.json           # Native Windows terminal & C IntelliSense
+│   ├── tasks.json              # Windows build & test tasks
+│   └── launch.json             # Dev server launcher
 ├── backend-c/                  # Native C Backend Directory
-│   ├── Makefile                # Build configuration for GCC
+│   ├── build.bat               # Windows Command Prompt 1-click build script
+│   ├── build.ps1               # Windows PowerShell build script
+│   ├── run.bat                 # Windows C server runner
+│   ├── test.bat                # Windows DSA engine test runner
+│   ├── Makefile                # Cross-platform GNU Make build configuration
 │   ├── tracker.db              # Persistent SQLite3 database file
-│   ├── include/                # C Header Files
+│   ├── include/                # Cross-Platform C Header Files
 │   │   ├── internship.h        # Internship structs, enums, constants
 │   │   ├── db.h                # SQLite operations & user isolation headers
 │   │   ├── crypto.h            # SHA-256 and token generation headers
@@ -66,9 +80,9 @@ A full-stack college project for tracking internship applications, deadlines, an
 │   │   └── problem_solving.h   # Phase 4: Greedy, Knapsack, Backtracking
 │   └── src/                    # C Source Implementations
 │       ├── c_server_main.c     # C HTTP REST Server entry point
-│       ├── http_server.c       # HTTP/1.1 socket server, routing & auth
+│       ├── http_server.c       # HTTP/1.1 Winsock2 / POSIX server, routing & auth
 │       ├── db.c                # SQLite3 schema creation & user isolation
-│       ├── crypto.c            # Pure C SHA-256 & random salt generator
+│       ├── crypto.c            # Pure C SHA-256 & Windows CryptGenRandom
 │       ├── c_engine.c          # Standalone DSA test harness CLI
 │       ├── linked_list.c       # Doubly Linked List logic
 │       ├── stack.c             # Stack push/pop logic
@@ -81,108 +95,100 @@ A full-stack college project for tracking internship applications, deadlines, an
 │       └── problem_solving.c   # Greedy, DP & Backtracking logic
 ├── src/                        # Frontend React SPA
 │   ├── pages/
-│   │   ├── Login.tsx           # Simple Login page (email & password)
-│   │   ├── Signup.tsx          # Simple Sign-Up page (name, email, passwords)
-│   │   └── Dashboard.tsx       # Main DSA Dashboard & Phases
+│   │   ├── Login.tsx           # Student Login page (email & password)
+│   │   ├── Signup.tsx          # Student Sign-Up page (name, email, passwords)
+│   │   └── Dashboard.tsx       # Main DSA Dashboard, Filters, and Phase Views
 │   ├── components/
-│   │   ├── UserProfile.tsx     # Student Profile component from session
+│   │   ├── InternshipFilter.tsx# Status & Deadline Filter/Sort Component
+│   │   ├── AddInternshipForm.tsx# Reusable Application Form Component
+│   │   ├── UserProfile.tsx     # Student Profile component
 │   │   └── phases/             # Phase 1 to 4 & C Studio components
 │   └── services/
 │       ├── authService.ts      # Auth communication with C REST API
 │       ├── internshipApiService.ts # Persistent record sync with C REST API
 │       └── cBackendService.ts  # DSA engine mirror and status
 ├── server.ts                   # Host server running frontend + proxying to C
-├── package.json                # Frontend package configuration
+├── package.json                # Cross-platform project scripts
 └── README.md                   # Project documentation
 ```
 
 ---
 
-## 3. Prerequisites & Installation
+## 3. Running Natively on Windows 10/11 (VS Code)
 
-### Required C Compiler & Libraries
-- **GCC**: `gcc` (version 9+ or clang)
-- **Make**: `make`
-- **SQLite3 Library & Development Headers**: `libsqlite3-dev` and `sqlite3`
-- **Node.js**: Node 18+ (for serving the React SPA)
+No Linux, WSL, Docker, or Linux executables required!
 
-On Ubuntu / Debian:
-```bash
-sudo apt-get update
-sudo apt-get install -y gcc make libsqlite3-dev sqlite3
-```
+### Step 1: Open in VS Code
+Open the project directory in VS Code on your Windows machine.
 
----
-
-## 4. How to Compile and Run
-
-### Option A: Complete Full-Stack Run (Recommended)
-This runs the application with the C backend server automatically compiled and proxied.
-
-```bash
-# 1. Install frontend packages (if not already installed)
+### Step 2: Start the Application
+Open a terminal in VS Code (PowerShell or Command Prompt):
+```powershell
+# 1. Install dependencies (if first time)
 npm install
 
-# 2. Build the C binaries
-make -C backend-c all
-
-# 3. Start the application
+# 2. Run the application
 npm run dev
 ```
+
 Open your browser at: **`http://localhost:3000`**
 
-### Option B: Running the C Backend Standalone
-You can also run the C HTTP REST Server directly in its own terminal:
-
-```bash
+### Step 3: Compiling C Backend Natively on Windows (Optional)
+If you wish to compile the C binaries (`c_http_server.exe` and `c_engine.exe`) natively:
+1. Ensure a Windows C compiler is installed, such as:
+   - **MinGW-w64** via winget: `winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT`
+   - or **MSYS2 / GCC**
+   - or **Visual Studio C++ Tools** (`cl.exe`)
+2. Run the automated Windows build script:
+```cmd
 cd backend-c
-make clean && make all
-./c_http_server --port 8080 --db tracker.db
+build.bat
 ```
-The C backend will start listening on `http://127.0.0.1:8080`.
-
-### Option C: Running the Standalone C DSA Engine Test Harness
-To verify that all C data structures, sorting algorithms, and problem-solving modules pass all test cases:
-
-```bash
-cd backend-c
-./c_engine
+3. To run the automated DSA verification suite in Windows:
+```cmd
+test.bat
 ```
 
----
-
-## 5. Security & Authentication Implementation
-
-- **Password Storage**: Passwords are **never stored in plaintext**. The C backend generates a 32-character random cryptographic salt and hashes the password using pure C **SHA-256**.
-- **Session Tokens**: On successful registration or login, the C backend issues a 64-character random hex token saved to the SQLite `sessions` table.
-- **User Record Isolation**: Every internship record in SQLite is tagged with `user_id`. When querying (`GET /api/internships`), modifying (`PUT /api/internships/:id`), or deleting (`DELETE /api/internships/:id`), the C backend authenticates the token and enforces that students only access their own records.
-- **Session Persistence**: The authenticated session is preserved across page refreshes via client storage synced with the C backend (`GET /api/auth/me`).
+> **Note**: The dev server includes an integrated fallback engine that automatically handles all auth, internship persistence, and DSA benchmarking even if a C compiler is not yet installed on Windows! Once you compile `c_http_server.exe`, the dev server automatically proxies to the native C binary.
 
 ---
 
-## 6. Default Demo Credentials
+## 4. Complexity Reference Matrix (Viva Ready)
 
-For quick evaluation during college presentations:
-- **Email:** `student@college.edu`
-- **Password:** `password123`
-
-You can also create a new student account using the **Sign-Up** page.
+| Phase | Structure / Algorithm | Operation | Time Complexity | Space Complexity |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | Doubly Linked List | `insert_tail` / `insert_head` | $O(1)$ | $O(1)$ |
+| | Doubly Linked List | `delete_by_id` | $O(N)$ | $O(1)$ |
+| | Doubly Linked List | `find_by_id` | $O(N)$ | $O(1)$ |
+| | Stack (Linked) | `push` / `pop` / `peek` | $O(1)$ | $O(1)$ |
+| | Queue (Linked) | `enqueue` / `dequeue` | $O(1)$ | $O(1)$ |
+| | Expression Stack | Parenthesis checking | $O(N)$ | $O(N)$ |
+| **Phase 2** | Binary Search Tree | `insert` / `search` | $O(\log N)$ avg, $O(N)$ worst | $O(H)$ recursion |
+| | Binary Search Tree | Inorder / Preorder / Postorder | $O(N)$ | $O(H)$ recursion |
+| | Graph (Adj. List) | BFS Traversal | $O(V + E)$ | $O(V)$ |
+| | Graph (Adj. List) | DFS Traversal | $O(V + E)$ | $O(V)$ |
+| **Phase 3** | Linear Search | Search by name/role | $O(N)$ | $O(1)$ |
+| | Binary Search | Search in sorted list | $O(\log N)$ | $O(1)$ |
+| | Merge Sort | Sort by deadline | $O(N \log N)$ (guaranteed) | $O(N)$ |
+| | Quick Sort | Sort by company | $O(N \log N)$ avg, $O(N^2)$ worst | $O(\log N)$ |
+| | Insertion Sort | Sort nearly-sorted list | $O(N)$ best, $O(N^2)$ worst | $O(1)$ |
+| **Phase 4** | Greedy Interval Scheduling | Max non-overlapping interviews | $O(N \log N)$ (sorting) | $O(N)$ |
+| | 0/1 Knapsack (DP) | Maximize stipend within hours | $O(N \times W)$ | $O(N \times W)$ |
+| | Backtracking | Interview slot assignment | $O(M^N)$ pruned branch & bound | $O(N)$ call stack |
 
 ---
 
-## 7. Features & DSA Curriculum Verification
+## 5. Academic Viva Questions & Answers
 
-| Feature / Phase | Implementation Language | Status |
-| :--- | :--- | :--- |
-| Student Registration (`POST /api/auth/register`) | Pure C + SQLite3 + SHA-256 | Verified |
-| Student Login (`POST /api/auth/login`) | Pure C + SQLite3 + SHA-256 | Verified |
-| Student Logout (`POST /api/auth/logout`) | Pure C + SQLite3 | Verified |
-| Record Isolation (`/api/internships`) | Pure C + SQLite3 (`WHERE user_id = ?`) | Verified |
-| Phase 1: Doubly Linked List & Head/Tail Insertion | C (`linked_list.c`) + React View | Verified |
-| Phase 1: Stack (Undo/Redo) & Queue (FIFO Review) | C (`stack.c`, `queue.c`) + React View | Verified |
-| Phase 1: Expression Stack (Parentheses check) | C (`expression_stack.c`) + React View | Verified |
-| Phase 2: Trees (BST) & Traversals | C (`bst.c`) + React View | Verified |
-| Phase 2: Graphs (BFS & DFS) | C (`graph.c`) + React View | Verified |
-| Phase 3: Searching & Sorting (Merge, Quick, Insertion) | C (`sorting.c`, `searching.c`) + React View | Verified |
-| Phase 4: Greedy Scheduling, Knapsack DP, Backtracking | C (`problem_solving.c`) + React View | Verified |
-| C Backend Studio | C File Inspector & CLI Engine | Verified |
+1. **How is native Windows compatibility achieved without WSL or Linux?**
+   * *Answer*: Networking uses Windows Sockets (`<winsock2.h>`, `<ws2tcpip.h>`, linking with `ws2_32.lib`), multi-threading uses native Windows threads (`_beginthread`), cryptographic token generation uses the Windows Crypto API (`CryptGenRandom`), and paths use Windows-compatible separators and batch scripts (`build.bat`, `run.bat`, `test.bat`).
+2. **Why use a Doubly Linked List instead of an array in C?**
+   * *Answer*: In a doubly linked list, deletion of a known node is strictly $O(1)$ pointer reassignment (`prev->next = next; next->prev = prev;`), whereas arrays require $O(N)$ memory element shifting.
+3. **How does the Stack guarantee $O(1)$ Undo/Redo?**
+   * *Answer*: The stack inserts and removes nodes exclusively at the `top` pointer (head of the singly linked list).
+4. **How does the Queue guarantee $O(1)$ Enqueue and Dequeue?**
+   * *Answer*: By maintaining both a `front` and a `rear` pointer. Enqueue appends to `rear->next`, and dequeue advances `front = front->next`.
+5. **Why choose Merge Sort for deadline sorting?**
+   * *Answer*: Merge Sort is a **stable** sort ($O(N \log N)$ worst-case guarantee). Stability ensures that if two applications share the exact same deadline date, their original submission order is preserved.
+6. **How does the Greedy Interval Scheduling algorithm work?**
+   * *Answer*: It sorts all interview candidate slots by **earliest finish time** (`end_time`). Greedily choosing the interval that finishes earliest leaves maximal remaining time for subsequent non-overlapping interviews.

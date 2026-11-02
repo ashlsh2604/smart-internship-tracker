@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { InternshipRecord, ApplicationStatus, ApplicationPriority, ActionRecord } from '../../types/internship';
 import { buildDoublyLinkedListNodes, validateExpressionParentheses } from '../../services/cBackendService';
+import { cleanId } from '../../utils/internshipFilter';
 import { Button } from '../Button';
 import { InternshipApplicationForm } from '../InternshipApplicationForm';
 
@@ -179,7 +180,7 @@ export const Phase1LinearView: React.FC<Phase1LinearViewProps> = ({
                   <div className="w-64 bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs flex flex-col justify-between">
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 border-b border-slate-100 pb-1.5 mb-2">
                       <span>ADDR: {node.memoryAddress}</span>
-                      <span className="text-indigo-600 font-semibold">{node.data.id}</span>
+                      <span className="text-indigo-600 font-semibold">{cleanId(node.data.id)}</span>
                     </div>
 
                     <div>
@@ -311,7 +312,7 @@ export const Phase1LinearView: React.FC<Phase1LinearViewProps> = ({
                     records.map((rec) => (
                       <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3 px-4 font-mono font-medium text-slate-900">
-                          {rec.id}
+                          {cleanId(rec.id)}
                         </td>
                         <td className="py-3 px-4">
                           <div className="font-medium text-slate-900">{rec.companyName}</div>
@@ -439,7 +440,7 @@ export const Phase1LinearView: React.FC<Phase1LinearViewProps> = ({
                           <span>{act.description}</span>
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          Company: <strong className="text-slate-600">{act.record.companyName}</strong> ({act.record.id})
+                          Company: <strong className="text-slate-600">{act.record.companyName}</strong> ({cleanId(act.record.id)})
                         </div>
                       </div>
                     </div>

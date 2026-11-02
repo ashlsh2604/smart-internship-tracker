@@ -21,6 +21,7 @@ import {
   getStatusCounts,
   SortField,
   SortDirection,
+  cleanId,
 } from '../utils/internshipFilter';
 import { SAMPLE_INTERNSHIP_BLUEPRINT } from '../data/schema';
 import { InternshipRecord, ApplicationStatus, ActionRecord } from '../types/internship';
@@ -107,8 +108,12 @@ export const Dashboard: React.FC = () => {
       try {
         const fetched = await internshipApiService.fetchInternships();
         if (fetched && fetched.length > 0) {
-          setRecords(fetched);
-          setReviewQueue([fetched[0], fetched[1] || fetched[0]]);
+          const cleaned = fetched.map((item) => ({
+            ...item,
+            id: cleanId(item.id),
+          }));
+          setRecords(cleaned);
+          setReviewQueue([cleaned[0], cleaned[1] || cleaned[0]]);
         } else {
           // If no records exist in C database yet, use blueprint and persist them
           setRecords(SAMPLE_INTERNSHIP_BLUEPRINT);
@@ -138,9 +143,13 @@ export const Dashboard: React.FC = () => {
 
   // Add record
   const handleAddRecord = (record: InternshipRecord, atHead: boolean) => {
-    setRecords((prev) => (atHead ? [record, ...prev] : [...prev, record]));
+    const cleanedRecord: InternshipRecord = {
+      ...record,
+      id: cleanId(record.id),
+    };
+    setRecords((prev) => (atHead ? [cleanedRecord, ...prev] : [...prev, cleanedRecord]));
     // Persist to C backend SQLite
-    internshipApiService.addInternship(record);
+    internshipApiService.addInternship(cleanedRecord);
 
     // If active filter would hide the new record, reset status filter so user sees it
     if (statusFilter !== 'ALL') {
@@ -513,7 +522,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Simple Footer */}
       <footer className="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-10">
-        <p>Smart Internship Tracker • C Language POSIX Backend + SQLite3 Persistence • DSA Phases 1–4</p>
+        <p>Smart Internship Tracker • Native C Language Backend + SQLite3 Persistence • DSA Phases 1–4</p>
       </footer>
     </div>
   );

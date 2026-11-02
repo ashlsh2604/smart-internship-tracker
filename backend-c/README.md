@@ -38,21 +38,30 @@ backend-c/
 
 ## Compilation & Execution
 
-To compile the C backend using GCC:
+### On Windows 10/11 (Native, No Linux / WSL):
+To compile using the automated Windows batch script (supports MinGW-w64, Clang, or MSVC):
+```cmd
+cd backend-c
+build.bat
+```
+
+To run the standalone C HTTP REST Server on Windows:
+```cmd
+run.bat
+```
+
+To run the automated verification suite across all 4 phases on Windows:
+```cmd
+test.bat
+```
+
+---
+
+### On POSIX / Linux / macOS:
 ```bash
 cd backend-c
 make
-```
-
-To run the automated verification suite across all 4 phases:
-```bash
-./c_engine
-# or
-make test
-```
-
-To clean compiled objects:
-```bash
+./c_engine # or make test
 make clean
 ```
 

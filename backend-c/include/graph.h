@@ -10,10 +10,19 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#else
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#endif
 
 #define MAX_VERTICES 32
 #define MAX_VERTEX_NAME 64

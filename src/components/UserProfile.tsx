@@ -24,6 +24,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
   const [editCollege, setEditCollege] = useState(user?.college || 'School of Computer Science & Engineering');
   const [editMajor, setEditMajor] = useState(user?.major || 'B.Tech Computer Science');
   const [editTargetRole, setEditTargetRole] = useState(user?.targetRole || 'Software Development Engineer Intern');
@@ -31,6 +32,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditCollege(user.college || 'School of Computer Science & Engineering');
+      setEditMajor(user.major || 'B.Tech Computer Science');
+      setEditTargetRole(user.targetRole || 'Software Development Engineer Intern');
+    }
+  }, [user]);
 
   if (!user) return null;
 
@@ -46,6 +57,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
     const res = await updateProfile({
       name: editName.trim(),
+      phone: editPhone.trim(),
       college: editCollege.trim(),
       major: editMajor.trim(),
       targetRole: editTargetRole.trim(),
@@ -104,6 +116,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               <div className="pb-2 mb-2 border-b border-gray-200">
                 <p className="font-bold text-gray-900">{user.name}</p>
                 <p className="text-gray-500 truncate">{user.email}</p>
+                {user.phone && <p className="text-gray-500 font-mono text-[11px] mt-0.5">{user.phone}</p>}
                 <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-800 border border-green-200">
                   Active Session
                 </span>
@@ -137,6 +150,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           <SimpleEditModal
             name={editName}
             setName={setEditName}
+            phone={editPhone}
+            setPhone={setEditPhone}
             college={editCollege}
             setCollege={setEditCollege}
             major={editMajor}
@@ -183,6 +198,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               <p className="text-gray-800 font-mono text-xs">{user.email}</p>
             </div>
             <div>
+              <span className="text-gray-500 text-xs block">Phone Number</span>
+              <p className="text-gray-800 font-mono text-xs">{user.phone || 'Not linked'}</p>
+            </div>
+            <div>
               <span className="text-gray-500 text-xs block">College</span>
               <p className="text-gray-800">{user.college || 'School of Computer Science & Engineering'}</p>
             </div>
@@ -218,6 +237,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           <SimpleEditModal
             name={editName}
             setName={setEditName}
+            phone={editPhone}
+            setPhone={setEditPhone}
             college={editCollege}
             setCollege={setEditCollege}
             major={editMajor}
@@ -261,6 +282,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
               <p>
                 Email: <strong className="text-gray-900">{user.email}</strong>
+              </p>
+              <span>•</span>
+              <p>
+                Phone: <strong className="text-gray-900">{user.phone || 'Not linked'}</strong>
               </p>
               <span>•</span>
               <p>
@@ -371,6 +396,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         <SimpleEditModal
           name={editName}
           setName={setEditName}
+          phone={editPhone}
+          setPhone={setEditPhone}
           college={editCollege}
           setCollege={setEditCollege}
           major={editMajor}
@@ -392,6 +419,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 interface SimpleEditModalProps {
   name: string;
   setName: (v: string) => void;
+  phone: string;
+  setPhone: (v: string) => void;
   college: string;
   setCollege: (v: string) => void;
   major: string;
@@ -408,6 +437,8 @@ interface SimpleEditModalProps {
 const SimpleEditModal: React.FC<SimpleEditModalProps> = ({
   name,
   setName,
+  phone,
+  setPhone,
   college,
   setCollege,
   major,
@@ -467,6 +498,17 @@ const SimpleEditModal: React.FC<SimpleEditModalProps> = ({
               disabled
               value={email}
               className="w-full px-2.5 py-1.5 border border-gray-200 rounded text-xs text-gray-500 bg-gray-100 cursor-not-allowed"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-medium mb-1">Phone Number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 (555) 019-2834"
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white"
             />
           </div>
 

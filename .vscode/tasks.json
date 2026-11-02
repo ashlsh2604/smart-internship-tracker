@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Dev Server (Full Application)",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Build C Backend (Windows Native)",
+      "type": "shell",
+      "windows": {
+        "command": "backend-c\\build.bat"
+      },
+      "command": "cd backend-c && make",
+      "problemMatcher": ["$gcc"],
+      "group": "build"
+    },
+    {
+      "label": "Run C DSA Engine Tests",
+      "type": "shell",
+      "windows": {
+        "command": "backend-c\\test.bat"
+      },
+      "command": "cd backend-c && make test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Project",
+      "type": "shell",
+      "command": "npm run clean",
+      "problemMatcher": []
+    }
+  ]
+}

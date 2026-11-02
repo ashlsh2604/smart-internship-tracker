@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, LoginCredentials, SignupData, AuthResponse } from '../types/auth';
+import { User, LoginCredentials, SignupData, AuthResponse, SendOtpResponse } from '../types/auth';
 import {
   authService,
   getCurrentSessionUser,
   getRememberedEmail,
+  getRememberedPhone,
 } from '../services/authService';
 
 interface AuthContextType {
@@ -11,7 +12,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   rememberedEmail: string;
+  rememberedPhone: string;
   login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+  loginWithPhone: (
+    phone: string,
+    otpOrPassword: string,
+    isOtp?: boolean,
+    rememberMe?: boolean
+  ) => Promise<AuthResponse>;
+  sendPhoneOtp: (phone: string) => Promise<SendOtpResponse>;
   signup: (data: SignupData, autoLogin?: boolean) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<AuthResponse>;
@@ -25,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [rememberedEmail, setRememberedEmailState] = useState<string>('');
+  const [rememberedPhone, setRememberedPhoneState] = useState<string>('');
 
   // Synchronize initial session from localStorage on application mount
   useEffect(() => {
@@ -36,6 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedEmail = getRememberedEmail();
       if (savedEmail) {
         setRememberedEmailState(savedEmail);
+      }
+      const savedPhone = getRememberedPhone();
+      if (savedPhone) {
+        setRememberedPhoneState(savedPhone);
       }
     } catch (e) {
       console.error('Failed to initialize auth state from storage:', e);
@@ -49,12 +63,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (res.success && res.user) {
       setUser(res.user);
       if (credentials.rememberMe) {
-        setRememberedEmailState(credentials.email);
+        if (credentials.email) setRememberedEmailState(credentials.email);
+        if (credentials.phone) setRememberedPhoneState(credentials.phone);
       } else {
-        setRememberedEmailState('');
+        if (credentials.email) setRememberedEmailState('');
+        if (credentials.phone) setRememberedPhoneState('');
       }
     }
     return res;
+  };
+
+  const loginWithPhone = async (
+    phone: string,
+    otpOrPassword: string,
+    isOtp: boolean = true,
+    rememberMe: boolean = false
+  ): Promise<AuthResponse> => {
+    const res = await authService.loginWithPhone(phone, otpOrPassword, isOtp, rememberMe);
+    if (res.success && res.user) {
+      setUser(res.user);
+      if (rememberMe) {
+        setRememberedPhoneState(phone);
+      } else {
+        setRememberedPhoneState('');
+      }
+    }
+    return res;
+  };
+
+  const sendPhoneOtp = async (phone: string) => {
+    return authService.sendPhoneOtp(phone);
   };
 
   const signup = async (data: SignupData, autoLogin: boolean = true): Promise<AuthResponse> => {
@@ -98,7 +136,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         loading,
         rememberedEmail,
+        rememberedPhone,
         login,
+        loginWithPhone,
+        sendPhoneOtp,
         signup,
         logout,
         updateProfile,

@@ -159,7 +159,7 @@ export const CBackendStudioView: React.FC = () => {
               <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
               <div className="w-3 h-3 rounded-full bg-green-500/80" />
               <span className="ml-2 text-xs font-mono text-slate-400">
-                bash - c_engine test (Native Linux Binary)
+                terminal - c_engine test (Native C11 Executable)
               </span>
             </div>
 

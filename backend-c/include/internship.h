@@ -9,11 +9,20 @@
 #ifndef INTERNSHIP_H
 #define INTERNSHIP_H
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#else
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#endif
 
 #define MAX_ID_LEN 32
 #define MAX_STR_LEN 128

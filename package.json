@@ -8,7 +8,11 @@
     "start": "node server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true }); fs.rmSync('server.js', { force: true });\"",
+    "build:c": "cd backend-c && make",
+    "build:c:win": "cd backend-c && build.bat",
+    "test:c": "cd backend-c && make test",
+    "test:c:win": "cd backend-c && test.bat",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

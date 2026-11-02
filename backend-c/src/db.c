@@ -132,8 +132,8 @@ static void seed_user_initial_internships(const char *user_id) {
     int seed_count = sizeof(INITIAL_SEEDS) / sizeof(INITIAL_SEEDS[0]);
     for (int i = 0; i < seed_count; i++) {
         InternshipRecord rec = INITIAL_SEEDS[i];
-        /* Ensure unique ID per user seed */
-        snprintf(rec.id, sizeof(rec.id), "%s_%d", INITIAL_SEEDS[i].id, (int)(time(NULL) % 10000));
+        /* Clean ID per student account */
+        snprintf(rec.id, sizeof(rec.id), "%s", INITIAL_SEEDS[i].id);
         db_insert_internship(user_id, &rec);
     }
 }
